@@ -20,7 +20,7 @@ def _new_circuit(port: int, tpass: str):
 def _get() -> List[Tuple[str, int]]:
     try:
         resp = requests.request("GET", URL, timeout=5, proxies=PROXIES)
-    except:
+    except Exception:
         return []
 
     lines = resp.content.split(b"\n")
