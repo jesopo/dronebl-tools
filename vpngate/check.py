@@ -1,4 +1,4 @@
-import argparse, os.path, socket, ssl, sys
+import argparse, os, socket, ssl, sys
 from typing  import Set
 from OpenSSL import crypto
 from dronebl import DroneBL
@@ -6,7 +6,12 @@ from dronebl import DroneBL
 CERT_CN = "*.opengw.net"
 COMMENT = "VPNGate server (connect verified)"
 
-def _cn(ip: str, port: int):
+UDP_SID   = os.urandom(8)
+UDP_DATA  = b"8"
+UDP_DATA += UDP_SID
+UDP_DATA += b"\x00\x00\x00\x00\x00"
+
+def _cn(ip: str, port: int) -> bool:
     sock = ssl.wrap_socket(socket.socket())
     sock.settimeout(5)
     try:
@@ -18,7 +23,18 @@ def _cn(ip: str, port: int):
 
     x509 = crypto.load_certificate(crypto.FILETYPE_ASN1, cert)
     cn   = x509.get_subject().CN
-    return cn
+    return cn == CERT_CN
+
+def _udp(ip: str, port: int) -> bool:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(5)
+    try:
+        sock.sendto(UDP_DATA, (ip, port))
+        data, addr = sock.recvfrom(1024)
+    except socket.timeout:
+        return False
+    else:
+        return data[14:22] == UDP_SID
 
 def _main(
         key:    str,
@@ -30,29 +46,31 @@ def _main(
             lines = list(filter(bool, lines))
             known.update(lines)
 
-    with open(master, "a") as f_app:
-        d = DroneBL(key)
-        for host in iter(sys.stdin.readline, b""):
-            host       = host.rstrip("\n")
-            ip, port_s = host.rsplit(":", 1)
-            port       = int(port_s)
+    f_app = open(master, "a")
+    d = DroneBL(key)
+    for host in iter(sys.stdin.readline, ""):
+        key           = host.strip()
+        proto, ip, po = key.rsplit(" ", 2)
+        port          = int(po)
+        host          = f"{ip}:{port}"
 
-            if not host in known:
-                cn = _cn(ip, port)
-                if cn == CERT_CN:
-                    look = d.lookup(ip, 19)
-                    if look is None:
-                        success, msg = d.add(ip, 19, COMMENT, port)
-                        print(f"+ {host}")
-                    else:
-                        print(f"- {host}")
-
-                    known.add(ip)
-                    f_app.write(f"{host}\n")
+        if not key in known:
+            if ((proto == "tcp" and _cn(ip, port)) or
+                    (proto == "udp" and _udp(ip, port))):
+                look = d.lookup(ip, 19)
+                if look is None:
+                    success, msg = d.add(ip, 19, COMMENT, port)
+                    print(f"+ {proto} {host}")
                 else:
-                    print(f"! {host} ({cn})")
+                    print(f"- {proto} {host}")
+
             else:
-                print(f"= {host}")
+                print(f"! {proto} {host}")
+
+            known.add(key)
+            f_app.write(f"{key}\n")
+        else:
+            print(f"= {proto} {host}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

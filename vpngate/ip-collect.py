@@ -31,29 +31,33 @@ def _get() -> List[Tuple[str, int]]:
     for line in lines[2:]:
         pieces  = line.split(b",")
         openvpn = base64.b64decode(pieces[14]).decode("utf8")
+        proto   = "tcp"
         for ovpn_line in openvpn.split("\n"):
-            var, _, value = ovpn_line.partition(" ")
+            var, _, value = ovpn_line.strip("\r").partition(" ")
             if var == "remote":
                 ip, port = value.split(" ", 1)
-                ips.append((ip, int(port)))
+                ips.append((proto, ip, int(port)))
                 break
+            elif var == "proto":
+                proto = value
     return ips
 
 def _main(
         tor_port: int,
         tor_pass: str):
 
-    ip_set: Set[str] = set()
+    known: Set[str] = set()
 
     while True:
         _new_circuit(tor_port, tor_pass)
-        ips = _get()
+        hosts = _get()
 
         added = 0
-        for ip, port in ips:
-            if not ip in ip_set:
-                ip_set.add(ip)
-                sys.stdout.write(f"{ip}:{port}\n")
+        for proto, ip, port in hosts:
+            out = f"{proto} {ip} {port}"
+            if not out in known:
+                known.add(out)
+                sys.stdout.write(f"{out}\n")
                 sys.stdout.flush()
 
 if __name__ == "__main__":
