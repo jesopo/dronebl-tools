@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from datetime import datetime
+from os       import environ, path
 from sys      import exit, stderr, stdin, stdout
 from typing   import Optional, Tuple
 
@@ -78,7 +79,7 @@ def main():
     # $ dronebl `cat .dronebl` 19 "VPNGate server (connect verified)" - -p 1337
     parser = ArgumentParser(
         description="BAD IP ADDRESS RAH")
-    parser.add_argument("key")
+    parser.add_argument("key", type=str)
     parser.add_argument("type", type=int)
     parser.add_argument("comment")
     parser.add_argument("input", help="<ip>[:<port>] or - (stdin)")
@@ -86,13 +87,29 @@ def main():
     parser.add_argument("--quiet", "-q", action="store_true")
     args = parser.parse_args()
 
+    key = args.key
+    if key == "-":
+        if "DBLKEY" in environ:
+            key = environ["DBLKEY"]
+        else:
+            stderr.write("key not found in env\n")
+            exit(1)
+    else:
+        key_path = path.expanduser(key)
+        if path.isfile(key_path):
+            with open(key_path) as key_file:
+                key = key_file.read().strip()
+        else:
+            stderr.write("key file non-existent\n")
+            exit(2)
+
     if args.input == "-":
         for line in iter(stdin.readline, ""):
             line = line.strip()
-            _single(args.key, line, args.port, args.type, args.comment,
+            _single(key, line, args.port, args.type, args.comment,
                 args.quiet)
     else:
-        _single(args.key, args.input, args.port, args.type, args.comment,
+        _single(key, args.input, args.port, args.type, args.comment,
             args.quiet)
 
 if __name__ == "__main__":
