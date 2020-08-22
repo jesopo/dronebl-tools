@@ -17,7 +17,7 @@ def _new_circuit(port: int, tpass: str):
     sock.sendall(b"SIGNAL NEWNYM\r\n")
     sock.close()
 
-def _get() -> List[Tuple[str, int]]:
+def _get() -> List[Tuple[str, str, int]]:
     try:
         resp = requests.request("GET", URL, timeout=5, proxies=PROXIES)
     except Exception:
