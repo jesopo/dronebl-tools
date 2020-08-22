@@ -34,8 +34,12 @@ def _lookup(
 def _ip_port(
         host: str,
         port: Optional[int]
-        ) -> Optional[int]:
-    ip, _, port_s = host.partition(":")
+        ) -> Tuple[str, Optional[int]]:
+    if host.startswith("[") and "]" in host:
+        ip, port_s = host[1:].split("]", 1)
+        port_s     = port_s.lstrip(":")
+    else:
+        ip, _, port_s = host.partition(":")
     return (ip, int(port_s) if port_s else port)
 
 def _print(
