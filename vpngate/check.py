@@ -4,7 +4,7 @@ from OpenSSL import crypto
 from dronebl import DroneBL
 
 CERT_CN = "*.opengw.net"
-COMMENT = "VPNGate server (connect verified)"
+COMMENT = "VPNGate {proto} server (connect verified)"
 
 UDP_SID   = os.urandom(8)
 UDP_DATA  = b"8"
@@ -59,7 +59,8 @@ def _main(
                     (proto == "udp" and _udp(ip, port))):
                 look = d.lookup(ip, 19)
                 if look is None:
-                    success, msg = d.add(ip, 19, COMMENT, port)
+                    comment = COMMENT.format(proto=proto.upper())
+                    success, msg = d.add(ip, 19, comment, port)
                     print(f"+ {proto} {host}")
                 else:
                     print(f"- {proto} {host}")
