@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+from argparse import ArgumentParser
+from os       import path
+from sys      import exit, stderr
+from typing   import List
+from dronebl  import DroneBL, Lookup
+
+def _print(looks: List[Lookup]):
+    for look in looks:
+        out  = f"[{look.id}] "
+        out += f"type {str(look.type).zfill(2)} "
+        out += f"at {look.datetime.isoformat()}"
+        if look.comment:
+            out += f": {look.comment}"
+        print(out)
+
+def main():
+    parser = ArgumentParser(
+        description="BAD IP ADDRESS RAH")
+    parser.add_argument("key", type=str)
+    parser.add_argument("ip")
+    parser.add_argument("--type", "-t", type=int)
+    args = parser.parse_args()
+
+    key = args.key
+    if key == "-":
+        if "DBLKEY" in environ:
+            key = environ["DBLKEY"]
+        else:
+            stderr.write("key not found in env\n")
+            exit(1)
+    else:
+        key_path = path.expanduser(key)
+        if path.isfile(key_path):
+            with open(key_path) as key_file:
+                key = key_file.read().strip()
+        else:
+            stderr.write("key file non-existent\n")
+            exit(2)
+
+    d     = DroneBL(key)
+    looks = d.lookup(args.ip, args.type)
+    if looks:
+       _print(looks)
+    else:
+        exit(1)
+
+if __name__ == "__main__":
+    main()
