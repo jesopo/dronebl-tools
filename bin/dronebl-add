@@ -80,7 +80,6 @@ def _single(
         _print(id, msg, ip, port, type, quiet)
 
 def main():
-    # $ dronebl `cat .dronebl` 19 "VPNGate server (connect verified)" - -p 1337
     parser = ArgumentParser(
         description="BAD IP ADDRESS RAH")
     parser.add_argument("key", type=str)
