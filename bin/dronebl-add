@@ -26,8 +26,8 @@ def _lookup(
         ) -> Optional[Tuple[datetime, str]]:
     d    = DroneBL(key)
     look = d.lookup(ip, type)
-    if look is not None:
-        return (look.datetime, look.comment)
+    if look:
+        return (look[0].datetime, look[0].comment)
     else:
         return None
 
