@@ -47,7 +47,8 @@ def _main(
             known.update(lines)
 
     f_app = open(master, "a")
-    d = DroneBL(key)
+    with open(key) as key_file:
+        d = DroneBL(key_file.read().strip())
     for host in iter(sys.stdin.readline, ""):
         key           = host.strip()
         proto, ip, po = key.rsplit(" ", 2)
