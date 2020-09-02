@@ -58,11 +58,11 @@ def _main(
         if not key in known:
             if ((proto == "tcp" and _cn(ip, port)) or
                     (proto == "udp" and _udp(ip, port))):
-                look = d.lookup(ip, 19)
-                if look is None:
+                look = d.lookup(ip, 19, limit=1)
+                if not look:
                     comment = COMMENT.format(proto=proto.upper())
-                    success, msg = d.add(ip, 19, comment, port)
-                    print(f"+ {proto} {host}")
+                    id, msg = d.add(ip, 19, comment, port)
+                    print(f"+ {proto} {host} - {id}")
                 else:
                     print(f"- {proto} {host}")
 
