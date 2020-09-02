@@ -8,7 +8,7 @@ CERT_CN   = "*.opengw.net"
 UDP_SID   = urandom(8)
 UDP_DATA  = b"8%b\x00\x00\x00\x00\x00"
 
-def _cn(ip: str, port: int) -> bool:
+def _tcp(ip: str, port: int) -> bool:
     sock = ssl.wrap_socket(socket.socket())
     sock.settimeout(5)
     try:
