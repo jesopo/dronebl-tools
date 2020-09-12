@@ -90,7 +90,7 @@ def main():
             dbatch.add(ip, args.comment, port)
 
         outs   = drone.commit(dbatch)
-        for i, (_, id, mesage) in enumerate(outs):
+        for i, (_, id, message) in enumerate(outs):
             ip, port = batch[i]
             host = ip
             if port is not None:
