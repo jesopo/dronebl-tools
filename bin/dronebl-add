@@ -2,22 +2,12 @@
 
 from argparse import ArgumentParser
 from datetime import datetime
+from io       import StringIO
 from os       import environ, path
 from sys      import exit, stderr, stdin, stdout
 from typing   import Optional, Tuple
 
 from dronebl  import DroneBL
-
-def _add(
-        key:     str,
-        ip:      str,
-        type:    int,
-        comment: str,
-        port:    Optional[int]
-        ) -> Tuple[Optional[int], str]:
-    d = DroneBL(key)
-    id, msg = d.add(ip, type, comment, port)
-    return (id, msg)
 
 def _lookup(
         key:  str,
@@ -42,43 +32,6 @@ def _ip_port(
         ip, _, port_s = host.partition(":")
     return (ip, int(port_s) if port_s else port)
 
-def _print(
-        id:    Optional[int],
-        msg:   str,
-        ip:    str,
-        port:  Optional[int],
-        type:  int,
-        quiet: bool):
-    host = ip
-    if port is not None:
-        host += f":{port}"
-
-    if id is not None:
-        if not quiet:
-            stdout.write(f"+ added {id} - {host}\n")
-            stdout.flush()
-    else:
-        stderr.write(f"! failed to add {host}: {msg}\n")
-        stderr.flush()
-
-def _single(
-        key:     str,
-        input:   str,
-        port:    Optional[int],
-        type:    int,
-        comment: str,
-        quiet:   bool):
-    ip, port = _ip_port(input, port)
-    look     = _lookup(key, ip, type)
-
-    if look is not None:
-        dt, msg = look
-        stderr.write(f"= {ip} already exists: [{dt.isoformat()}] {msg}\n")
-        stderr.flush()
-    else:
-        id, msg  = _add(key, ip, type, comment, port)
-        _print(id, msg, ip, port, type, quiet)
-
 def main():
     parser = ArgumentParser(
         description="BAD IP ADDRESS RAH")
@@ -86,8 +39,9 @@ def main():
     parser.add_argument("type", type=int)
     parser.add_argument("comment")
     parser.add_argument("input", help="<ip>[:<port>] or - (stdin)")
-    parser.add_argument("--port", "-p", type=int)
+    parser.add_argument("--port",  "-p", type=int)
     parser.add_argument("--quiet", "-q", action="store_true")
+    parser.add_argument("--batch", "-b", type=int)
     args = parser.parse_args()
 
     key = args.key
@@ -107,13 +61,47 @@ def main():
             exit(2)
 
     if args.input == "-":
-        for line in iter(stdin.readline, ""):
-            line = line.strip()
-            _single(key, line, args.port, args.type, args.comment,
-                args.quiet)
+        infile = stdin
     else:
-        _single(key, args.input, args.port, args.type, args.comment,
-            args.quiet)
+        infile = StringIO(args.input)
+
+    drone = DroneBL(key)
+    items: List[Tuple[str, Optional[int]]] = []
+    for line in iter(infile.readline, ""):
+        line = line.strip()
+
+        ip, port = _ip_port(line, args.port)
+        look     = _lookup(key, ip, type)
+
+        if look is not None:
+            dt, msg = look
+            stderr.write(f"= {ip} already exists: [{dt.isoformat()}] {msg}\n")
+            stderr.flush()
+        else:
+            items.append((ip, port))
+
+    stdout.write("\n")
+
+    batch_i = 5 if args.batch is None else args.batch
+    for i in range(0, len(items), batch_i):
+        batch  = items[i:i+batch_i]
+        dbatch = drone.type_batch(args.type)
+        for ip, port in batch:
+            dbatch.add(ip, args.comment, port)
+
+        outs   = drone.commit(dbatch)
+        for i, (_, id, mesage) in enumerate(outs):
+            ip, port = batch[i]
+            host = ip
+            if port is not None:
+                host += f":{port}"
+
+            if id is None:
+                stderr.write(f"- {host} failed to list: {message}\n")
+                stderr.flush()
+            elif not args.quiet:
+                stdout.write(f"+ [{id}] {host} listed as {args.type}\n")
+                stdout.flush()
 
 if __name__ == "__main__":
     main()
