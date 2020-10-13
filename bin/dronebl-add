@@ -71,7 +71,7 @@ def main():
         line = line.strip()
 
         ip, port = _ip_port(line, args.port)
-        look     = _lookup(key, ip, type)
+        look     = _lookup(key, ip, args.type)
 
         if look is not None:
             dt, msg = look
