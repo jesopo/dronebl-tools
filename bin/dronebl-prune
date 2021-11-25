@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+
+from argparse import ArgumentParser
+from datetime import datetime
+from os       import path
+from sys      import exit, stderr
+from time     import monotonic
+from typing   import List
+from dronebl  import DroneBL, Lookup
+
+def main():
+    parser = ArgumentParser(
+        description="delist anything older than `notafter`")
+    parser.add_argument("key", type=str)
+    parser.add_argument("notafter", type=datetime.fromisoformat)
+    args = parser.parse_args()
+
+    key = args.key
+    if key == "-":
+        if "DBLKEY" in environ:
+            key = environ["DBLKEY"]
+        else:
+            stderr.write("key not found in env\n")
+            exit(1)
+    else:
+        key_path = path.expanduser(key)
+        if path.isfile(key_path):
+            with open(key_path) as key_file:
+                key = key_file.read().strip()
+        else:
+            stderr.write("key file non-existent\n")
+            exit(2)
+
+    dronebl = DroneBL(key)
+    dronebl._timeout = 60
+    total   = 0
+
+
+    listings: List[dronebl.Lookup] = []
+
+    while True:
+        if not listings:
+            listings += dronebl.lookup(
+                "0.0.0.0/1",   stop=args.notafter, listed=True, own=True)
+            listings += dronebl.lookup(
+                "128.0.0.0/1", stop=args.notafter, listed=True, own=True)
+
+            if not listings:
+                break
+            else:
+                print(f"prepared {len(listings)} listings to remove")
+        else:
+            start = monotonic()
+            batch = dronebl.batch()
+            for listing in listings[:100]:
+                batch.remove(listing.id)
+
+            output = dronebl.commit(batch)
+            for _, success, message in output:
+                if not success:
+                    print()
+                    print(message)
+                    sys.exit(3)
+
+            output_n = len(output)
+            total   += output_n
+            listings = listings[output_n:]
+            print(f"delisted {output_n} in {monotonic()-start:.2f}s")
+
+    print()
+    print(f"done. delisted {total} in total")
+
+if __name__ == "__main__":
+    main()
